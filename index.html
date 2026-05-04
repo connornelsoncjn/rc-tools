@@ -389,7 +389,7 @@ function getSetup() {
   return { order, type: typeEl.value };
 }
 
-// ===== PARSER =====
+// ===== IMPROVED PARSER (v3.1 - Order Agnostic) =====
 function parseRequest() {
   const setup = getSetup();
   if (!setup) return;
@@ -398,60 +398,184 @@ function parseRequest() {
   if (!raw) { alert('Please paste the request block.'); return; }
 
   const status = document.getElementById('parseStatus');
-  const blockPattern = /(?:^|\n)\s*(?:\d+(?:st|nd|rd|th)?\s*signing|signing\s*#?\d+|part\s*\d+)/gi;
-  let matches = [...raw.matchAll(blockPattern)];
+  const lines = raw.split(/\r?\n/);
 
-  let blocks = [];
-  if (matches.length >= 2) {
-    for (let i = 0; i < matches.length; i++) {
-      const start = matches[i].index;
-      const end = i < matches.length - 1 ? matches[i + 1].index : raw.length;
-      blocks.push(raw.substring(start, end).trim());
+  let signers = [];
+  let current = null;
+  let lastField = null; // track what field we last wrote to (for multi-line addresses)
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) { lastField = null; continue; } // blank line resets continuation
+
+    // Detect new signer block - header line like "First signing", "1st signing", "Second signing", etc.
+    if (/^(?:\d+(?:st|nd|rd|th)?\s*signing|(?:first|second|third|fourth|fifth)\s*signing)/i.test(line)) {
+      // Don't create a new signer here - wait for the name line
+      // But if we see this, it signals a new block
+      if (current && current.attendeeName) {
+        signers.push(current);
+      }
+      current = { attendeeName: '', attendeeContact: '', signingLocation: '', signingDateTime: '' };
+      lastField = null;
+      continue;
     }
-  } else {
-    const chunks = raw.split(/\n\s*\n/).filter(c => c.trim());
-    if (chunks.length >= 2) blocks = chunks;
-    else {
-      status.className = 'parse-status error';
-      status.textContent = '⚠️ Could not detect multiple signers. Separate each signer block with a blank line or label them (1st signing, 2nd signing, etc.)';
-      return;
+
+    // Detect signer name
+    if (/signer'?s?\s*name/i.test(line)) {
+      // If we have a current signer WITH a name already, push it and start fresh
+      if (current && current.attendeeName) {
+        signers.push(current);
+        current = { attendeeName: '', attendeeContact: '', signingLocation: '', signingDateTime: '' };
+      } else if (!current) {
+        current = { attendeeName: '', attendeeContact: '', signingLocation: '', signingDateTime: '' };
+      }
+      current.attendeeName = extractValue(line);
+      lastField = 'name';
+      continue;
     }
+
+    // If no current signer yet, skip until we find one
+    if (!current) continue;
+
+    // Detect signing location / address
+    if (/signing\s*location|address/i.test(line)) {
+      current.signingLocation = extractValue(line);
+      lastField = 'location';
+      continue;
+    }
+
+    // Detect signing date and time (combined)
+    if (/signing\s*date\s*(?:and|&|\/)?\s*time/i.test(line)) {
+      const val = extractValue(line);
+      if (val) current.signingDateTime = val;
+      lastField = 'datetime';
+      continue;
+    }
+
+    // Detect signing date only
+    if (/signing\s*date/i.test(line) && !/time/i.test(line)) {
+      const val = extractValue(line);
+      if (val) {
+        // Prepend/replace date portion
+        current.signingDateTime = val + (current._timeOnly ? ' ' + current._timeOnly : '');
+      }
+      lastField = 'date';
+      continue;
+    }
+
+    // Detect signing time only
+    if (/signing\s*time|^time\b/i.test(line)) {
+      const val = extractValue(line);
+      if (val) {
+        current._timeOnly = val;
+        // If we already have a date, append time
+        if (current.signingDateTime && !current.signingDateTime.includes(val)) {
+          // Check if datetime already has a time component (@ or am/pm)
+          if (!/\d+:\d+/i.test(current.signingDateTime)) {
+            current.signingDateTime += ' ' + val;
+          }
+        } else if (!current.signingDateTime) {
+          current.signingDateTime = val;
+        }
+      }
+      lastField = 'time';
+      continue;
+    }
+
+    // Detect phone/contact
+    if (/phone\s*(?:number|#)?|contact\s*(?:#|number|info)?/i.test(line)) {
+      current.attendeeContact = extractValue(line);
+      lastField = 'contact';
+      continue;
+    }
+
+    // Detect email (if they include one)
+    if (/e-?mail/i.test(line)) {
+      const val = extractValue(line);
+      if (val && !current.attendeeContact) current.attendeeContact = val;
+      lastField = 'email';
+      continue;
+    }
+
+    // If none of the above matched, check if it's a continuation of the previous field
+    if (lastField === 'location' && looksLikeAddress(line)) {
+      // Multi-line address - append
+      current.signingLocation = (current.signingLocation + ' ' + line).trim();
+      continue;
+    }
+
+    // If it looks like a standalone address (state + zip pattern) and location is empty
+    if (!current.signingLocation && looksLikeAddress(line)) {
+      current.signingLocation = line;
+      lastField = 'location';
+      continue;
+    }
+
+    // Otherwise ignore unrecognized lines
+    lastField = null;
   }
 
-  if (blocks.length < 2 || blocks.length > 5) {
+  // Push the last signer
+  if (current && current.attendeeName) {
+    signers.push(current);
+  }
+
+  // Clean up temp fields
+  signers.forEach(s => { delete s._timeOnly; });
+
+  // Validate
+  if (signers.length < 2) {
     status.className = 'parse-status error';
-    status.textContent = `⚠️ Detected ${blocks.length} signer(s). Expected 2–5.`;
+    status.textContent = `⚠️ Only found ${signers.length} signer(s). Need at least 2. Make sure each signer has a "Signer name" line.`;
+    return;
+  }
+  if (signers.length > 5) {
+    status.className = 'parse-status error';
+    status.textContent = `⚠️ Found ${signers.length} signers. Max supported is 5.`;
     return;
   }
 
-  const signers = blocks.map(block => ({
-    notaryName: '',
-    labelNum: '',
-    usesPackageLabel: false,
-    attendeeName: extractField(block, [/signer'?s?\s*name\s*[:=]\s*(.+)/i, /name\s*[:=]\s*(.+)/i]),
-    attendeeContact: extractField(block, [/contact\s*#?\s*[:=]\s*(.+)/i, /phone\s*#?\s*[:=]\s*(.+)/i, /cell\s*#?\s*[:=]\s*(.+)/i]),
-    signingLocation: extractField(block, [/address\s*[:=]\s*(.+)/i, /location\s*[:=]\s*(.+)/i]),
-    signingDateTime: extractField(block, [/(?:signing\s*)?date\s*(?:and|&|\/)?\s*time\s*[:=]\s*(.+)/i, /date\s*[:=]\s*(.+)/i])
-  }));
-
-  // Auto-select package label signer
+  // Auto-select package label for mail away
   if (setup.type === 'Mail Away') {
     signers[signers.length - 1].usesPackageLabel = true;
   }
 
   buildReviewTable(signers);
   status.className = 'parse-status success';
-  status.textContent = `✅ Parsed ${signers.length} signer(s). Review below.`;
+  status.textContent = `✅ Parsed ${signers.length} signer(s). Review and fill in any missing fields below.`;
   document.getElementById('reviewCard').classList.remove('hidden');
   setTimeout(() => document.getElementById('reviewCard').scrollIntoView({ behavior: 'smooth' }), 100);
 }
 
-function extractField(text, patterns) {
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m && m[1]) return m[1].trim();
+// Extract value after a label (handles colon, double-space, tab separators)
+function extractValue(line) {
+  // Try colon first
+  const colonIdx = line.indexOf(':');
+  if (colonIdx !== -1) {
+    return line.substring(colonIdx + 1).trim().replace(/^[@]/, '').trim();
+  }
+  // Try double-space separation (common in the second template)
+  const parts = line.split(/\s{2,}/);
+  if (parts.length >= 2) {
+    return parts.slice(1).join(' ').trim().replace(/^[@]/, '').trim();
+  }
+  // Try tab
+  const tabParts = line.split('\t');
+  if (tabParts.length >= 2) {
+    return tabParts.slice(1).join(' ').trim();
   }
   return '';
+}
+
+// Check if a line looks like an address (has state abbreviation + zip, or street number)
+function looksLikeAddress(line) {
+  // State + ZIP pattern
+  if (/\b[A-Z]{2}\s+\d{5}\b/i.test(line)) return true;
+  // Starts with a number (street address)
+  if (/^\d+\s+\w/.test(line)) return true;
+  // Contains common street words
+  if (/\b(st|rd|ln|dr|blvd|ave|ct|way|hwy|county|road)\b/i.test(line)) return true;
+  return false;
 }
 
 // ===== REVIEW TABLE =====
