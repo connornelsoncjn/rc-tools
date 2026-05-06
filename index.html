@@ -385,7 +385,7 @@ function parseRequest() {
     }
 
     // Signer name = new signer
-    if (/signer'?s?\s*name/i.test(line)) {
+    if (/signer'?s?\s*name|who\s*is\s*signing\??|signee|borrower'?s?\s*name|client'?s?\s*name/i.test(line)) {
       if (current && current.attendeeName) signers.push(current);
       current = {
         notaryName: '', labelNum: '', usesPackageLabel: false,
