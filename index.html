@@ -390,7 +390,24 @@ function parseRequest() {
     const numberedNameMatch = line.match(/^(\d+)(?:st|nd|rd|th)?\s*[-:–]\s*(.+)$/i);
     const wordNumberedMatch = line.match(/^(first|second|third|fourth|fifth)\s*[-:–]\s*(.+)$/i);
 
-    if (signerNameMatch || numberedNameMatch || wordNumberedMatch) {
+// Validate numbered matches aren't actually addresses/times
+    let validNumberedMatch = numberedNameMatch;
+    if (numberedNameMatch) {
+      const nameCandidate = numberedNameMatch[2].trim();
+      if (looksLikeAddress(nameCandidate) || /^\d{1,2}\s*[:.]?\s*(am|pm)/i.test(nameCandidate) || /^\d{5}/.test(nameCandidate)) {
+        validNumberedMatch = null;
+      }
+    }
+
+    let validWordMatch = wordNumberedMatch;
+    if (wordNumberedMatch) {
+      const nameCandidate = wordNumberedMatch[2].trim();
+      if (looksLikeAddress(nameCandidate) || /^\d{1,2}\s*[:.]?\s*(am|pm)/i.test(nameCandidate) || /^\d{5}/.test(nameCandidate)) {
+        validWordMatch = null;
+      }
+    }
+
+    if (signerNameMatch || validNumberedMatch || validWordMatch) {
       if (current && current.attendeeName) signers.push(current);
       current = {
         notaryName: '', labelNum: '', usesPackageLabel: false,
@@ -399,22 +416,13 @@ function parseRequest() {
 
       if (signerNameMatch) {
         current.attendeeName = extractValue(line);
-      } else if (numberedNameMatch) {
-        current.attendeeName = numberedNameMatch[2].trim();
-      } else if (wordNumberedMatch) {
-        current.attendeeName = wordNumberedMatch[2].trim();
+      } else if (validNumberedMatch) {
+        current.attendeeName = validNumberedMatch[2].trim();
+      } else if (validWordMatch) {
+        current.attendeeName = validWordMatch[2].trim();
       }
 
       lastField = 'name';
-      continue;
-    }
-    if (!current) continue;
-
-    // Signing date and time (primary - always use this)
-    if (/signing\s*date\s*(?:and|&|\/)?\s*time/i.test(line)) {
-      const val = extractValue(line);
-      if (val) current.signingDateTime = val;
-      lastField = 'datetime';
       continue;
     }
 
