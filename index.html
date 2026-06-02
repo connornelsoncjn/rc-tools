@@ -319,15 +319,15 @@ function renderOutput(orderNumber, closingType, signers) {
     email += `\t• ${ordinal(i+1)} Attendee's Contact Information: ${s.attendeeContact||'N/A'}\n`;
     email += `\t• ${ordinal(i+1)} Signing Location: ${s.signingLocation}\n`;
     email += `\t• ${ordinal(i+1)} Signing Date & Time: ${s.signingDateTime}\n`;
-    if (closingType==='Split') { email += `\nAfter the closing completes, please use the shipping label addressed to Rocket Close and drop the closing package at the nearest UPS Store.\n`; }
-    else { if (isLast) { email += `\nAfter the closing completes, please use the shipping label addressed to Rocket Close and drop the closing package at the nearest UPS Store.\n`; } else { const nextLoc=signers[i+1].signingLocation; email += `\nPlease confirm your shipping label reflects the correct address for the next closing location (${nextLoc}) before dropping the closing package at the nearest UPS Store.\n`; email += `\nAdditionally, please print two acknowledgement forms and ensure there is an additional shipping label within the package. It should be addressed to Rocket Close, so ${signers[count-1].attendeeName} can return the documents to Rocket Close.\n`; } }
+    if (closingType==='Split') { email += `\nAfter the closing completes, please use the shipping label **attached to this email** addressed to Rocket Close and drop the closing package at the nearest UPS Store.\n`; }
+    else { if (isLast) { email += `\nAfter the closing completes, please use the shipping label **attached to this email** addressed to Rocket Close and drop the closing package at the nearest UPS Store.\n`; } else { const nextLoc=signers[i+1].signingLocation; email += `\nPlease confirm your shipping label reflects the correct address for the next closing location (${nextLoc}) before dropping the closing package at the nearest UPS Store.\n`; email += `\nAdditionally, please print two acknowledgement forms and ensure there is an additional shipping label within the package. It should be addressed to Rocket Close, so ${signers[count-1].attendeeName} can return the documents to Rocket Close.\n`; } }
   }
   email += '\nIf any of you have questions or concerns, please reply to this email or call us at 888-784-2523.\n\nThank you,';
   let atlas = '';
   for (let i=0;i<count;i++) {
     const s=signers[i]; const isLast=i===count-1; const typeUpper=closingType.toUpperCase();
     atlas += `*****${typeUpper} CLOSING PART ${i+1} OF ${count}*****\n`;
-    if (closingType==='Split') { atlas += `PLEASE USE THE SHIPPING LABEL ADDRESSED TO ROCKET CLOSE AND DROP THE CLOSING PACKAGE AT THE NEAREST UPS STORE.\n\n`; }
+    if (closingType==='Split') { atlas += `PLEASE USE THE SHIPPING LABEL **IN THE EMAIL THAT WAS SENT TO YOU** ADDRESSED TO ROCKET CLOSE AND DROP THE CLOSING PACKAGE AT THE NEAREST UPS STORE.\n\n`; }
     else if (isLast) { atlas += `PLEASE USE THE SHIPPING LABEL IN THE CLOSING PACKAGE TO MAIL YOUR DOCUMENTS BACK TO ROCKET CLOSE.\n\n`; }
     else { const nextLoc=signers[i+1].signingLocation; atlas += `PLEASE USE THE SHIPPING LABEL BEING EMAILED TO YOU, SO YOU CAN SEND THE CLOSING PACKAGE TO THE NEXT SIGNER. THE ADDRESS ON THE LABEL SHOULD BE ${nextLoc}\n\n`; }
     atlas += `Order #: ${orderNumber}\n`;
