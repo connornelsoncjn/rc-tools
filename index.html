@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rocket Close – Split / Mail Away Generator v3.3</title>
+<title>Rocket Close – Split / Mail Away Generator v3.4</title>
 <style>
   :root {
     --rc-red: #c8102e; --rc-red-dark: #a00d24; --rc-red-light: #fbe9ec;
@@ -16,8 +16,9 @@
   .header { background: var(--rc-red); color: var(--rc-white); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
   .header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
   .header .subtitle { font-size: 12px; opacity: 0.85; font-weight: 400; }
-  .header .reset-btn { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 6px 16px; border-radius: var(--rc-radius); cursor: pointer; font-size: 13px; }
-  .header .reset-btn:hover { background: rgba(255,255,255,0.35); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .header .reset-btn, .header .template-btn { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 6px 16px; border-radius: var(--rc-radius); cursor: pointer; font-size: 13px; }
+  .header .reset-btn:hover, .header .template-btn:hover { background: rgba(255,255,255,0.35); }
   .instructions { background: var(--rc-red-light); border-left: 4px solid var(--rc-red); padding: 12px 20px; margin: 20px 24px 0; border-radius: 0 var(--rc-radius) var(--rc-radius) 0; font-size: 13px; line-height: 1.5; }
   .container { max-width: 1060px; margin: 20px auto; padding: 0 24px 40px; }
   .card { background: var(--rc-white); border: 1px solid var(--rc-border); border-radius: var(--rc-radius); padding: 24px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
@@ -80,22 +81,98 @@
   .copy-feedback.show { opacity: 1; }
   .divider { height: 1px; background: var(--rc-border); margin: 24px 0; }
   .hidden { display: none !important; }
-  @media (max-width: 700px) { .signer-grid { grid-template-columns: 1fr; } .radio-group { flex-direction: column; } .inline-row { flex-direction: column; } .container { padding: 0 12px 40px; } .review-table { font-size: 11px; } }
+
+  /* Modal styles */
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--rc-white); border-radius: var(--rc-radius); padding: 28px; max-width: 680px; width: 90%; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+  .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .modal .modal-desc { font-size: 13px; color: var(--rc-text-light); margin-bottom: 16px; }
+  .modal .close-modal { position: absolute; top: 12px; right: 16px; background: none; border: none; font-size: 22px; cursor: pointer; color: var(--rc-text-light); }
+  .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .modal-header h2 { margin: 0; }
+  .modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--rc-text-light); line-height: 1; padding: 0 4px; }
+  .modal-close-btn:hover { color: var(--rc-red); }
+  .template-select-row { display: flex; gap: 12px; margin-bottom: 16px; align-items: flex-end; }
+  .template-select-row > div { flex: 1; }
+
+  @media (max-width: 700px) { .signer-grid { grid-template-columns: 1fr; } .radio-group { flex-direction: column; } .inline-row { flex-direction: column; } .container { padding: 0 12px 40px; } .review-table { font-size: 11px; } .header-actions { flex-direction: column; gap: 4px; } }
 </style>
 </head>
 <body>
 <div class="header">
-  <div><h1>🚀 Rocket Close</h1><div class="subtitle">Split / Mail Away Awareness Generator v3.3</div></div>
-  <button class="reset-btn" onclick="resetAll()">↻ Start Over</button>
+  <div><h1>🚀 Rocket Close</h1><div class="subtitle">Split / Mail Away Awareness Generator v3.4</div></div>
+  <div class="header-actions">
+    <button class="template-btn" onclick="openTemplateModal()">📋 Request Template</button>
+    <button class="reset-btn" onclick="resetAll()">↻ Start Over</button>
+  </div>
 </div>
-<div class="instructions">Generate paste-ready awareness emails and Atlas notes. Use <strong>Quick Paste</strong> to import a request block instantly, or <strong>Manual Entry</strong> for full control. One signer per closing uses the label in the notary package — select which one in the review step.</div>
+<div class="instructions">Generate paste-ready awareness emails and Atlas notes. Use <strong>Quick Paste</strong> to import a request block instantly, or <strong>Manual Entry</strong> for full control. One signer per closing uses the label in the notary package — select which one in the review step. Use the <strong>Request Template</strong> button to generate a template to send to the lender.</div>
 <div class="container">
   <div class="card" id="setupCard"><h2>Setup</h2><div class="card-desc">Enter order info and select closing type.</div><div class="inline-row"><div><label for="orderNumber">Loan / Order Number</label><input type="text" id="orderNumber" placeholder="e.g., 75471234"></div><div><label>Closing Type</label><div class="radio-group"><div class="radio-option"><input type="radio" name="closingType" id="typeSplit" value="Split"><label for="typeSplit">✂️ Split</label></div><div class="radio-option"><input type="radio" name="closingType" id="typeMailAway" value="Mail Away"><label for="typeMailAway">📦 Mail Away</label></div></div></div></div></div>
   <div class="card" id="inputCard"><div class="tab-bar"><button class="tab-btn active" onclick="switchTab('paste')">⚡ Quick Paste</button><button class="tab-btn" onclick="switchTab('manual')">📝 Manual Entry</button></div><div class="tab-content active" id="tab-paste"><label for="pasteBox">Paste Request Block</label><textarea id="pasteBox" rows="14" placeholder="Paste the request exactly as it comes in. Supports any field order, multi-line addresses, and various label formats."></textarea><div class="hint">Supports 2–5 signers. Parser looks for: Signer name, Signing location/Address, Signing date and time, Phone/Contact.</div><div class="btn-row"><button class="btn btn-primary" onclick="parseRequest()">Parse & Review →</button></div><div class="parse-status" id="parseStatus"></div></div><div class="tab-content" id="tab-manual"><label for="signerCount">Number of Signings</label><select id="signerCount"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select><div class="btn-row"><button class="btn btn-primary" onclick="buildManualForms()">Build Forms →</button></div><div id="manualFormsContainer" style="margin-top:16px;"></div><div class="btn-row hidden" id="manualGenerateRow"><button class="btn btn-primary" onclick="generateFromManual()">Generate Output 🚀</button></div></div></div>
   <div class="card hidden" id="reviewCard"><h2>Review Parsed Data</h2><div class="card-desc">Verify and edit fields. Add notary names and label numbers. Select which signer uses the label in the notary package.</div><div id="reviewTableContainer"></div><div class="btn-row"><button class="btn btn-secondary" onclick="backToInput()">← Back</button><button class="btn btn-primary" onclick="generateFromReview()">Generate Output 🚀</button></div></div>
   <div id="outputArea" class="hidden"><div class="divider"></div><div class="output-section"><h3>📧 Notary Awareness Email</h3><div class="output-desc">Paste into email composer for notary awareness.</div><div style="margin-bottom:12px;"><label style="margin:0;">Subject Line:</label><div class="output-box" id="subjectOutput" style="max-height:none;padding:10px 12px;font-size:14px;"></div><div class="btn-row" style="margin-top:6px;"><button class="btn btn-copy btn-sm" onclick="copyEl('subjectOutput','subjectFB')">📋 Copy Subject</button><span class="copy-feedback" id="subjectFB">✓ Copied!</span></div></div><label style="margin:0;">Email Body:</label><div class="output-box" id="emailOutput"></div><div class="btn-row"><button class="btn btn-copy" onclick="copyEl('emailOutput','emailFB')">📋 Copy Email Body</button><span class="copy-feedback" id="emailFB">✓ Copied!</span></div></div><div class="output-section"><h3>📝 Atlas Awareness Notes</h3><div class="output-desc">Paste into Atlas awareness/notes field.</div><div class="output-box" id="atlasOutput"></div><div class="btn-row"><button class="btn btn-copy" onclick="copyEl('atlasOutput','atlasFB')">📋 Copy Atlas Notes</button><span class="copy-feedback" id="atlasFB">✓ Copied!</span></div></div><div class="btn-row"><button class="btn btn-secondary" onclick="resetAll()">↻ Start Over</button></div></div>
 </div>
+
+<!-- Template Request Modal -->
+<div class="modal-overlay" id="templateModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2>📋 Lender Request Template</h2>
+        <div class="modal-desc">Generate a signing info request to send to the lender. Select the number of signers and copy the template.</div>
+      </div>
+      <button class="modal-close-btn" onclick="closeTemplateModal()">×</button>
+    </div>
+    <div class="template-select-row">
+      <div>
+        <label for="templateSignerCount">Number of Signers</label>
+        <select id="templateSignerCount" onchange="generateTemplate()">
+          <option value="2">2 Signers</option>
+          <option value="3">3 Signers</option>
+          <option value="4">4 Signers</option>
+          <option value="5">5 Signers</option>
+        </select>
+      </div>
+    </div>
+    <div class="output-box" id="templateOutput" style="max-height:350px;"></div>
+    <div class="btn-row">
+      <button class="btn btn-copy" onclick="copyEl('templateOutput','templateFB')">📋 Copy Template</button>
+      <span class="copy-feedback" id="templateFB">✓ Copied!</span>
+      <button class="btn btn-secondary" onclick="closeTemplateModal()" style="margin-left:auto;">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ===== TEMPLATE MODAL =====
+function openTemplateModal() {
+  document.getElementById('templateModal').classList.add('active');
+  generateTemplate();
+}
+function closeTemplateModal() {
+  document.getElementById('templateModal').classList.remove('active');
+}
+function generateTemplate() {
+  const count = parseInt(document.getElementById('templateSignerCount').value);
+  const ordinals = ['First', 'Second', 'Third', 'Fourth', 'Fifth'];
+  let template = `Hello,\n\nPlease provide the signing info using the template below:\n\n`;
+  template += `─────────────────────────────────────\n\n`;
+  for (let i = 0; i < count; i++) {
+    template += `${ordinals[i]} Signing:\n`;
+    template += `Signer's Name: \n`;
+    template += `Signing Location: \n`;
+    template += `Signing Date and Time: \n`;
+    template += `Phone/Contact: \n`;
+    if (i < count - 1) template += `\n`;
+  }
+  template += `\n─────────────────────────────────────\n\n`;
+  template += `Thank you.`;
+  document.getElementById('templateOutput').textContent = template;
+}
+
+// ===== TABS & NAVIGATION =====
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -127,7 +204,7 @@ function getSetup() {
   return { order, type: typeEl.value };
 }
 
-// ===== PARSER v3.3 =====
+// ===== PARSER v3.4 =====
 function extractValue(line) {
   const colonMatch = line.match(/^[^:]+:\s*(.+)/);
   if (colonMatch) return colonMatch[1].replace(/^[@\s]+/, '').trim();
@@ -166,7 +243,6 @@ function parseRequest() {
     const line = lines[i].trim();
     if (!line) continue;
 
-    // Block header: "1-SIGNER", "2ND SIGNING", "First signing:", etc.
     if (/^(?:\d+(?:st|nd|rd|th)?[\s-]*(?:signing|signer)|(?:first|second|third|fourth|fifth)\s*(?:signing|signer))\s*:?\s*$/i.test(line)) {
       if (current && current.attendeeName) signers.push(current);
       current = null;
@@ -175,7 +251,6 @@ function parseRequest() {
       continue;
     }
 
-    // Name on next line after header
     if (sawHeader && !current && line && !isFieldLabel(line) && !looksLikeAddress(line) && !looksLikeTime(line) && /[a-z]/i.test(line)) {
       current = { notaryName: '', labelNum: '', usesPackageLabel: false, attendeeName: line.trim(), attendeeContact: '', signingLocation: '', signingDateTime: '' };
       lastField = 'name';
@@ -184,7 +259,6 @@ function parseRequest() {
     }
     sawHeader = false;
 
-    // Multi-pattern signer name detection
     const signerNameMatch = /signer'?s?\s*name|who\s*is\s*signing\??|signee|borrower'?s?\s*name|client'?s?\s*name/i.test(line);
     const numberedNameMatch = line.match(/^(\d+)(?:st|nd|rd|th)?\s*[-:–]\s*(.+)$/i);
     const wordNumberedMatch = line.match(/^(first|second|third|fourth|fifth)\s*[-:–]\s*(.+)$/i);
@@ -204,25 +278,15 @@ function parseRequest() {
 
     if (!current) continue;
 
-    // Signing date and time
     if (/signing\s*date\s*(?:and|&|\/)?\s*time/i.test(line)) { const val = extractValue(line); if (val) current.signingDateTime = val; lastField = 'datetime'; continue; }
-    // Scd shorthand
     if (/^scd\b/i.test(line)) { const val = line.replace(/^scd\s*/i, '').replace(/^[@\s]+/, '').trim(); if (val) current.signingDateTime = val; lastField = 'datetime'; continue; }
-    // Signing time only
     if (/^(?:signing\s*)?time\b/i.test(line)) { if (!current.signingDateTime) { const val = extractValue(line); if (val) current.signingDateTime = val; } lastField = 'time'; continue; }
-    // Signing date only
     if (/signing\s*date/i.test(line) && !/time/i.test(line)) { if (!current.signingDateTime) { const val = extractValue(line); if (val) current.signingDateTime = val; } lastField = 'date'; continue; }
-    // Signing location
     if (/signing\s*location|^address\b/i.test(line)) { current.signingLocation = extractValue(line); lastField = 'location'; continue; }
-    // Phone / contact
     if (/phone\s*(?:number|#)?|contact\s*(?:#|number|info)?/i.test(line)) { current.attendeeContact = extractValue(line); lastField = 'contact'; continue; }
-    // Email
     if (/^e-?mail\b/i.test(line)) { const val = extractValue(line); if (val && !current.attendeeContact) current.attendeeContact = val; lastField = 'email'; continue; }
-    // Address continuation
     if (lastField === 'location' && (looksLikeAddress(line) || !isFieldLabel(line))) { current.signingLocation = (current.signingLocation + ', ' + line).replace(/^,\s*/, '').trim(); continue; }
-    // Standalone address
     if (!current.signingLocation && looksLikeAddress(line)) { current.signingLocation = line; lastField = 'location'; continue; }
-    // Standalone time (e.g., "8:30 PM 05/07")
     if (!current.signingDateTime && /\d{1,2}\s*[:.]?\s*\d{0,2}\s*(am|pm)/i.test(line)) { current.signingDateTime = line.replace(/^[@\s]+/, '').trim(); lastField = 'datetime'; continue; }
 
     lastField = null;
@@ -301,7 +365,7 @@ function validateSigners(signers) { for (let i=0;i<signers.length;i++){const s=s
 function ordinal(n) { return ['','First','Second','Third','Fourth','Fifth'][n]||`#${n}`; }
 function labelText(signer) { if (signer.usesPackageLabel) return 'Please use the return label included in the closing package.'; if (signer.labelNum) return `Please use the return label ending in #${signer.labelNum}`; return ''; }
 
-// ===== RENDER OUTPUT =====
+// ===== RENDER OUTPUT (FIXED v3.4) =====
 function renderOutput(orderNumber, closingType, signers) {
   const count = signers.length;
   const subject = `${closingType} Signing Awareness – ${orderNumber}`;
@@ -309,37 +373,74 @@ function renderOutput(orderNumber, closingType, signers) {
   const greeting = 'Hello ' + notaryNames.join(' & ') + ',';
   let email = greeting + '\n\n';
   email += `We wanted to reach out for additional awareness regarding Order #${orderNumber}. This is a ${closingType.toLowerCase()} closing. The closing details have already been sent to you through the app. Please confirm you have received this information.\n`;
-  for (let i=0;i<count;i++) {
-    const s=signers[i]; const isLast=i===count-1;
-    const halfLabel = count===2?(i===0?'first half':'second half'):`part ${i+1} of ${count}`;
-    const lbl=labelText(s); const lblSuffix=lbl?` ${lbl}`:'';
-    email += `\n${s.notaryName||'TBD'}, you are conducting the ${halfLabel} of the closing.${lblSuffix}\n\n`;
+
+  for (let i = 0; i < count; i++) {
+    const s = signers[i];
+    const isLast = i === count - 1;
+    const halfLabel = count === 2 ? (i === 0 ? 'first half' : 'second half') : `part ${i+1} of ${count}`;
+    const lbl = labelText(s);
+    const lblSuffix = lbl ? ` ${lbl}` : '';
+
+    email += `\n${s.notaryName || 'TBD'}, you are conducting the ${halfLabel} of the closing.${lblSuffix}\n\n`;
     email += `The ${ordinal(i+1).toLowerCase()} signee's information is below:\n`;
     email += `\t• ${ordinal(i+1)} Attendee's Name: ${s.attendeeName}\n`;
-    email += `\t• ${ordinal(i+1)} Attendee's Contact Information: ${s.attendeeContact||'N/A'}\n`;
+    email += `\t• ${ordinal(i+1)} Attendee's Contact Information: ${s.attendeeContact || 'N/A'}\n`;
     email += `\t• ${ordinal(i+1)} Signing Location: ${s.signingLocation}\n`;
     email += `\t• ${ordinal(i+1)} Signing Date & Time: ${s.signingDateTime}\n`;
-    if (closingType==='Split') { email += `\nAfter the closing completes, please use the shipping label **attached to this email** addressed to Rocket Close and drop the closing package at the nearest UPS Store.\n`; }
-    else { if (isLast) { email += `\nAfter the closing completes, please use the shipping label **attached to this email** addressed to Rocket Close and drop the closing package at the nearest UPS Store.\n`; } else { const nextLoc=signers[i+1].signingLocation; email += `\nPlease confirm your shipping label reflects the correct address for the next closing location (${nextLoc}) before dropping the closing package at the nearest UPS Store.\n`; email += `\nAdditionally, please print two acknowledgement forms and ensure there is an additional shipping label within the package. It should be addressed to Rocket Close, so ${signers[count-1].attendeeName} can return the documents to Rocket Close.\n`; } }
+
+    // === FIXED: Differentiate shipping instructions based on usesPackageLabel ===
+    if (closingType === 'Split') {
+      if (s.usesPackageLabel) {
+        email += `\nAfter the closing completes, please use the shipping label included in the closing package addressed to Rocket Close and drop the closing package at the nearest UPS Store.\n`;
+      } else {
+        email += `\nAfter the closing completes, please use the shipping label **attached to this email** addressed to Rocket Close and drop the closing package at the nearest UPS Store.\n`;
+      }
+    } else {
+      // Mail Away logic
+      if (isLast) {
+        email += `\nAfter the closing completes, please use the shipping label included in the closing package addressed to Rocket Close and drop the closing package at the nearest UPS Store.\n`;
+      } else {
+        const nextLoc = signers[i+1].signingLocation;
+        email += `\nPlease confirm your shipping label reflects the correct address for the next closing location (${nextLoc}) before dropping the closing package at the nearest UPS Store.\n`;
+        email += `\nAdditionally, please print two acknowledgement forms and ensure there is an additional shipping label within the package. It should be addressed to Rocket Close, so ${signers[count-1].attendeeName} can return the documents to Rocket Close.\n`;
+      }
+    }
   }
   email += '\nIf any of you have questions or concerns, please reply to this email or call us at 888-784-2523.\n\nThank you,';
+
+  // === ATLAS NOTES (FIXED v3.4) ===
   let atlas = '';
-  for (let i=0;i<count;i++) {
-    const s=signers[i]; const isLast=i===count-1; const typeUpper=closingType.toUpperCase();
+  for (let i = 0; i < count; i++) {
+    const s = signers[i];
+    const isLast = i === count - 1;
+    const typeUpper = closingType.toUpperCase();
+
     atlas += `*****${typeUpper} CLOSING PART ${i+1} OF ${count}*****\n`;
-    if (closingType==='Split') { atlas += `PLEASE USE THE SHIPPING LABEL **IN THE EMAIL THAT WAS SENT TO YOU** ADDRESSED TO ROCKET CLOSE AND DROP THE CLOSING PACKAGE AT THE NEAREST UPS STORE.\n\n`; }
-    else if (isLast) { atlas += `PLEASE USE THE SHIPPING LABEL IN THE CLOSING PACKAGE TO MAIL YOUR DOCUMENTS BACK TO ROCKET CLOSE.\n\n`; }
-    else { const nextLoc=signers[i+1].signingLocation; atlas += `PLEASE USE THE SHIPPING LABEL BEING EMAILED TO YOU, SO YOU CAN SEND THE CLOSING PACKAGE TO THE NEXT SIGNER. THE ADDRESS ON THE LABEL SHOULD BE ${nextLoc}\n\n`; }
+
+    if (closingType === 'Split') {
+      if (s.usesPackageLabel) {
+        atlas += `PLEASE USE THE SHIPPING LABEL IN THE CLOSING PACKAGE TO MAIL YOUR DOCUMENTS BACK TO ROCKET CLOSE.\n\n`;
+      } else {
+        atlas += `PLEASE USE THE SHIPPING LABEL **IN THE EMAIL THAT WAS SENT TO YOU** ADDRESSED TO ROCKET CLOSE AND DROP THE CLOSING PACKAGE AT THE NEAREST UPS STORE.\n\n`;
+      }
+    } else if (isLast) {
+      atlas += `PLEASE USE THE SHIPPING LABEL IN THE CLOSING PACKAGE TO MAIL YOUR DOCUMENTS BACK TO ROCKET CLOSE.\n\n`;
+    } else {
+      const nextLoc = signers[i+1].signingLocation;
+      atlas += `PLEASE USE THE SHIPPING LABEL BEING EMAILED TO YOU, SO YOU CAN SEND THE CLOSING PACKAGE TO THE NEXT SIGNER. THE ADDRESS ON THE LABEL SHOULD BE ${nextLoc}\n\n`;
+    }
+
     atlas += `Order #: ${orderNumber}\n`;
-    atlas += `Notary: ${s.notaryName||'TBD'}\n`;
-    atlas += s.usesPackageLabel ? `Return Label: IN NOTARY PACKAGE\n` : `Return Label #: ${s.labelNum||'TBD'}\n`;
+    atlas += `Notary: ${s.notaryName || 'TBD'}\n`;
+    atlas += s.usesPackageLabel ? `Return Label: IN NOTARY PACKAGE\n` : `Return Label #: ${s.labelNum || 'TBD'}\n`;
     atlas += `Signer's name: ${s.attendeeName}\n`;
-    atlas += `Contact #: ${s.attendeeContact||'N/A'}\n`;
+    atlas += `Contact #: ${s.attendeeContact || 'N/A'}\n`;
     atlas += `Address: ${s.signingLocation}\n`;
     atlas += `Signing date and time: ${s.signingDateTime}\n`;
-    if (closingType==='Mail Away'&&!isLast) { atlas += `\n** Notary must print 2 acknowledgement forms and include an additional Rocket Close return label in the package. **\n`; }
-    if (i<count-1) atlas += '\n'+'─'.repeat(50)+'\n\n';
+    if (closingType === 'Mail Away' && !isLast) { atlas += `\n** Notary must print 2 acknowledgement forms and include an additional Rocket Close return label in the package. **\n`; }
+    if (i < count - 1) atlas += '\n' + '─'.repeat(50) + '\n\n';
   }
+
   document.getElementById('subjectOutput').textContent = subject;
   document.getElementById('emailOutput').textContent = email;
   document.getElementById('atlasOutput').textContent = atlas;
