@@ -451,6 +451,27 @@ function renderOutput(orderNumber, closingType, signers) {
 // ===== COPY =====
 function copyEl(id, fbId) { const text=document.getElementById(id).textContent; navigator.clipboard.writeText(text).then(()=>flash(fbId)).catch(()=>{const range=document.createRange();range.selectNodeContents(document.getElementById(id));const sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);document.execCommand('copy');sel.removeAllRanges();flash(fbId);}); }
 function flash(id) { const el=document.getElementById(id); el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2000); }
+
+  // ===== AUTO-PREFILL FROM URL PARAMS =====
+(function prefillFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const order = params.get('order');
+  const type = params.get('type');
+
+  if (order) {
+    document.getElementById('orderNumber').value = order;
+  }
+
+  if (type) {
+    const normalized = type.toLowerCase();
+    if (normalized === 'split') {
+      document.getElementById('typeSplit').checked = true;
+    } else if (normalized === 'mail away') {
+      document.getElementById('typeMailAway').checked = true;
+    }
+  }
+})();
+  
 </script>
 </body>
 </html>
